@@ -34,7 +34,12 @@ No Android Studio, no SDK install — Expo Go renders the app.
 
 ## Android Emulator without Android Studio (optional)
 
-**Prerequisites:** KVM working (`grep -c vmx /proc/cpuinfo` or `lscpu | grep Virtualization`; install `qemu-kvm` group access if missing), JDK 17+.
+> **Host status (verified 2026-10-16):** this machine currently **cannot** run the emulator —
+> `vmx` is absent from cpuinfo, the kvm module is not loaded, and `/dev/kvm` does not exist.
+> Enable VT-x in BIOS/UEFI (then verify with `lscpu | grep Virtualization`) before using this
+> section. Until then, the phone-based loop above is the only way to run the app.
+
+**Prerequisites:** KVM working (`lscpu | grep -i Virtualization` shows a line; user can access `/dev/kvm`), JDK 17+.
 
 1. Download only the command-line tools: Android SDK "Command line tools" zip from developer.android.com; unzip to `~/android-sdk/cmdline-tools/latest`.
 2. `sdkmanager "platform-tools" "emulator" "platforms;android-35" "system-images;android-35;google_apis;x86_64"` (accept licenses with `--licenses`).
