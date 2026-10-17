@@ -16,14 +16,14 @@ Networking follows the pattern Claude Code's Remote Control and Happy use: **out
 ## HLD
 
 ```text
-┌──── Phone ───┐            ┌───────────────────────────── Laptop ─────────────────────────────┐
-│              │            │                                                                  │
-│  Expo app    │◆───────◆   │  bridge daemon (Node)              pi --mode rpc  × N            │
-│  - chat UI   │ Tailscale  │  - WebSocket server (auth token)    - one child per session      │
-│  - approvals │  (WS)      │  - session lifecycle / registry     - JSONL stdin/stdout         │
-│  - notify    │            │  - approval forwarding              - events: text_delta, tool…  │
-└──────────────┘            │  - offline notification queue       - repos on local disk        │
-                            └──────────────────────────────────────────────────────────────────┘
+┌──── Phone ───┐          ┌───────────────────────────── Laptop ─────────────────────────────┐
+│              │          │                                                                  │
+│  Expo app    │◆───────◆ │  bridge daemon (Node)              pi --mode rpc  × N            │
+│  - chat UI   │Tailscale │  - WebSocket server (auth token)    - one child per session      │
+│  - approvals │  (WS)    │  - session lifecycle / registry     - JSONL stdin/stdout         │
+│  - notify    │          │  - approval forwarding              - events: text_delta, tool…  │
+└──────────────┘          │  - offline notification queue       - repos on local disk        │
+                          └──────────────────────────────────────────────────────────────────┘
 ```
 
 - One phone connection multiplexes many sessions (`sessionId` on every envelope).
