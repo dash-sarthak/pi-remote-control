@@ -52,6 +52,20 @@ No Android Studio, no SDK install — Expo Go renders the app.
 
 Bridge start/stop, pairing (QR token), project allowlist configuration, and log locations get documented here when Phase 2–4 land. Do not invent CLI flags before they exist.
 
+## Agent tooling: Expo MCP server
+
+`.pi/mcp.json` registers the official Expo MCP server (`https://mcp.expo.dev/mcp`) for AI agents working in this repo — live Expo docs (`read_documentation`, `learn`), version-correct installs (`add_library`), and later EAS build tools.
+
+1. Trust the project when pi prompts on first start in it (required before `.pi/mcp.json` is read).
+2. `/mcp` in a pi session shows the server state; first use needs `/mcp login expo` (OAuth in browser).
+
+**Verify:** `/mcp` lists `expo` as connected with tools.
+
+**Failure branches:**
+
+- _"ignored because the project is not trusted":_ accept the trust prompt when starting pi in this directory.
+- _Auth errors:_ re-run `/mcp login expo`.
+
 ## Troubleshooting quick table
 
 | Symptom                                | Likely cause                      | Fix                                                                               |
