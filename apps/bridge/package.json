@@ -1,0 +1,13 @@
+{
+  "name": "@pirc/bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "dev": "echo 'bridge dev server arrives in the architecture phase' && exit 1"
+  }
+}
