@@ -1,0 +1,4 @@
+pnpm-lock.yaml
+audit/
+apps/mobile/.expo/
+**/node_modules/

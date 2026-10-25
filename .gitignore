@@ -8,3 +8,6 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Local audit copies; each audit is committed on its own audit/N branch.
+/audit/

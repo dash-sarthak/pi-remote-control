@@ -13,23 +13,24 @@
     "test": "turbo run test",
     "dev:bridge": "pnpm --filter @pirc/bridge dev",
     "dev:android": "pnpm --filter mobile android",
-    "prepare": "husky"
+    "prepare": "husky",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm format:check",
+    "format:check": "prettier --check .",
+    "audit:start": "node .agents/skills/judge/scripts/start-audit.mjs"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,mjs}": [
+    "*.{ts,tsx,js,mjs,json,yaml,yml,md,css}": [
       "prettier --write"
     ],
-    "{packages,apps/bridge}/**/*.{ts,tsx,js,mjs}": [
+    "{packages,apps/bridge,.agents}/**/*.{ts,js,mjs}": [
       "eslint --fix"
-    ],
-    "*.{json,yaml,yml,md,css}": [
-      "prettier --write"
     ]
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "eslint": "^9.39.5",
+    "eslint-plugin-jsdoc": "65.4.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",

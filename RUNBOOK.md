@@ -53,6 +53,33 @@ No Android Studio, no SDK install — Expo Go renders the app.
 - _Emulator won't start: KVM._ `/dev/kvm` must be owned by your user (`sudo chown $USER /dev/kvm` or add to the `kvm` group).
 - _Emulator can't reach the laptop:_ use `10.0.2.2` (the emulator's alias for host loopback), never `localhost` — this will matter for the bridge URL (planned).
 
+## Prompt pi from the command line (rpc-spike)
+
+Phase 1 proof that the bridge drives `pi --mode rpc`: one prompt in, the streamed reply out. Design and guarantees: [apps/bridge/README.md](apps/bridge/README.md).
+
+**Prerequisites:** `pnpm install` done; `pi --version` works; pi has a default model with credentials (a plain `pi` session can answer a prompt).
+
+1. From the repository root:
+
+   ```sh
+   pnpm --silent --filter @pirc/bridge rpc-spike --cwd "$PWD" "Reply with exactly: hello from pi"
+   ```
+
+   Options: `--cwd DIR` (the project pi works in; default `apps/bridge`), `--provider NAME`, `--model ID` (default: pi's configured default). Set `PIRC_PI_COMMAND` to use a pi executable other than `pi` on PATH, and `PIRC_LOG_LEVEL=debug` to log every command and response.
+
+**Verify:**
+
+- The reply prints to stdout as it streams, followed by a newline (here: `hello from pi`).
+- Exit code is 0 (`echo $?`).
+- stderr holds only JSON lines, including `"msg":"pi process started"`, `"msg":"prompt settled"` with `"aborted":false`, and `"msg":"pi process exited"` with `"code":0`.
+
+**Failure branches:**
+
+- _Exit 2, `usage: rpc-spike …` logged:_ no prompt was given, or an option is unknown.
+- _Exit 1, `"msg":"rpc-spike failed"` with `failed to start pi (pi)`:_ pi is not on PATH (or `PIRC_PI_COMMAND` is wrong). Install pi or fix the path.
+- _Exit 1, error contains `No API key found`:_ pi has no credentials for its default model. Run `pi` and `/login`, or pass `--provider`/`--model` for a configured one.
+- _Exit 1, `"msg":"prompt settled"` with an `errorMessage`:_ the model provider failed (outage, quota). The message is the provider's; retry later.
+
 ## Bridge operations (planned)
 
 Bridge start/stop, pairing (QR token), project allowlist configuration, and log locations get documented here when Phase 2–4 land. Do not invent CLI flags before they exist.
@@ -63,6 +90,7 @@ Bridge start/stop, pairing (QR token), project allowlist configuration, and log 
 
 1. Trust the project when pi prompts on first start in it (required before `.pi/mcp.json` is read).
 2. `/mcp` in a pi session shows the server state; first use needs `/mcp login expo` (OAuth in browser).
+3. Claude Code reads the same file through the `.mcp.json` symlink; approve the `expo` server when Claude Code asks, then authenticate with `/mcp`.
 
 **Verify:** `/mcp` lists `expo` as connected with tools.
 
@@ -70,6 +98,48 @@ Bridge start/stop, pairing (QR token), project allowlist configuration, and log 
 
 - _"ignored because the project is not trusted":_ accept the trust prompt when starting pi in this directory.
 - _Auth errors:_ re-run `/mcp login expo`.
+
+## Audits
+
+An independent judge audits the repository whenever you start one: code, HLD, LLD, comments, documentation, tooling, CI, hygiene, security, and the product's output, the last by running the documented procedures in this file. Nothing schedules audits. Each audit runs in a fresh session with no project instructions, memory, or saved sessions, on the judge you choose: Claude (Claude Code, model `opus`) or GLM (pi, model `zai-coding-cn/glm-5.3`). Results:
+
+- branch `audit/N` on GitHub, containing `audit/N/report.md` and `audit/N/findings.json`
+- GitHub issue titled `audit/N` with label `audit`, whose body is the report
+- local copy in `./audit/N/` (git-ignored on `main`), plus `session.log`, the judge's full output
+
+Numbers start at 0 and increase by one per audit, whichever judge ran it.
+
+### Run an audit
+
+**Prerequisites:** `gh auth status` shows you logged in; the judge's harness (`claude` or `pi`) on PATH and logged in; push access to `origin`; the code to audit is on `origin/main` (the judge audits `origin/main`, not your working tree).
+
+1. In Claude Code or pi, started in this repository, invoke the `audit` skill and name the judge:
+
+   | Judge  | In Claude Code  | In pi                 |
+   | ------ | --------------- | --------------------- |
+   | Claude | `/audit claude` | `/skill:audit claude` |
+   | GLM    | `/audit glm`    | `/skill:audit glm`    |
+
+   With no judge named, the judge runs on the harness you invoked it from. Add a model id to override the default, for example `/audit glm zai-coding-cn/glm-5.3-flash`.
+
+2. The agent shows the planned audit number, harness, model, and worktree, runs the audit (this can take hours), and reports the issue link.
+
+Without an agent, the same launcher runs directly: `pnpm -s audit:start --harness claude-code` or `pnpm -s audit:start --harness pi`, optionally with `--model ID`; add `--dry-run` to print the plan as JSON and change nothing.
+
+**Verify:** the last stderr line is JSON with `"msg":"audit published"` and an `issueUrl`; `./audit/N/report.md` exists; `gh issue list --label audit` lists `audit/N`.
+
+**Failure branches:**
+
+- _`"msg":"invalid arguments"`:_ `--harness` is missing or not `claude-code` or `pi`; the `reason` field says which.
+- _`"msg":"judge session failed; worktree kept for inspection"`:_ the harness exited non-zero. Read `./audit/N/session.log`. Remove the worktree and the unpublished branch before retrying: `git worktree remove --force <worktree>` and `git branch -D audit/N`.
+- _`"msg":"judge output is invalid"`:_ the judge wrote a `findings.json` that breaks the report format; the log lists each problem. Clean up as above and rerun.
+- _`"msg":"audit failed"` mentioning `git push` or `gh`:_ check `gh auth status` and push access, then clean up as above.
+
+## Harness parity (Claude Code and pi)
+
+Both harnesses read the same instructions, skills, and MCP servers through symlinks (`CLAUDE.md -> AGENTS.md`, `.claude/skills -> ../.agents/skills`, `.mcp.json -> .pi/mcp.json`).
+
+**Verify:** `pnpm --filter @pirc/tooling test` passes; its harness-parity test names any file that breaks parity and what it must be instead.
 
 ## Troubleshooting quick table
 
