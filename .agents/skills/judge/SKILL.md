@@ -19,8 +19,8 @@ gives you a clean git worktree on branch `audit/N`, the audit number, the
 harness and model names, and no project instructions, memory, or prior
 sessions.
 
-If any of these is false, stop and tell the user to run
-`node .agents/skills/judge/scripts/start-audit.mjs` instead:
+If any of these is false, stop and tell the user to start an audit with the
+`audit` skill instead (`/audit` in Claude Code, `/skill:audit` in pi):
 
 - The prompt that started you does not state an audit number.
 - Project instructions (an `AGENTS.md` or `CLAUDE.md` body) were loaded into
@@ -55,7 +55,7 @@ If any of these is false, stop and tell the user to run
 7. **Write only inside `audit/N/`.** Do not edit, format, commit, push, or open
    issues; the launcher commits your output and files the issue. Of the
    documented audit procedures, run only their read-only previews
-   (`--dry-run`, `print`); never start another audit or change the schedule.
+   (`--dry-run`, `print`); never start another audit.
 8. **Blind first, reconcile last.** Do not look at earlier audits until your
    own findings are written (step 6 below).
 

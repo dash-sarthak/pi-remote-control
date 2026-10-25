@@ -3,17 +3,19 @@
  * Starts audit N in a fresh, isolated judge session and publishes the result.
  *
  * Usage:
- *   node .agents/skills/judge/scripts/start-audit.mjs [--harness claude-code|pi] [--model ID] [--if-due] [--dry-run]
+ *   node .agents/skills/judge/scripts/start-audit.mjs --harness claude-code|pi [--model ID] [--dry-run]
  *
- * Steps: fetch origin; pick the next audit number and harness; create a git
+ * Audits run only when someone starts one; nothing schedules them.
+ *
+ * Steps: fetch origin; pick the next audit number; create a git
  * worktree on a new `audit/N` branch from `origin/main`; run the judge there
  * with no project instructions, memory, or saved sessions; validate its
  * `audit/N/findings.json`; commit `audit/N/` on the branch, push it, open the
  * `audit/N` issue; copy `audit/N/` into this checkout; remove the worktree.
  *
- * `--if-due` exits without doing anything unless 15 days have passed since the
- * latest audit. `--dry-run` prints the plan as JSON and changes nothing.
- * Logs are JSON lines on stderr. Exit codes: 0 done or not due, 1 failure, 2 bad usage.
+ * `--harness` is required. `--model` defaults to the harness's entry in
+ * `DEFAULT_MODELS`. `--dry-run` prints the plan as JSON and changes nothing.
+ * Logs are JSON lines on stderr. Exit codes: 0 done, 1 failure, 2 bad usage.
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, createWriteStream, existsSync, mkdirSync, readdirSync } from 'node:fs';
@@ -25,8 +27,6 @@ import {
   auditNumbers,
   DEFAULT_MODELS,
   HARNESSES,
-  harnessFor,
-  isAuditDue,
   judgeCommand,
   nextAuditNumber,
 } from './audit-plan.mjs';
@@ -63,12 +63,12 @@ function run(command, args, cwd) {
 }
 
 /**
- * Collects everything the plan depends on from git and the filesystem.
+ * Lists the audit numbers already used by remote `audit/*` branches and local `audit/*` directories.
  *
  * @param {string} repoRoot
  * @param {boolean} hasOrigin
  */
-function readAuditHistory(repoRoot, hasOrigin) {
+function usedAuditNumbers(repoRoot, hasOrigin) {
   const remoteBranches = hasOrigin
     ? run(
         'git',
@@ -80,15 +80,7 @@ function readAuditHistory(repoRoot, hasOrigin) {
     : [];
   const localDir = join(repoRoot, 'audit');
   const localDirs = existsSync(localDir) ? readdirSync(localDir) : [];
-  const used = [...auditNumbers(remoteBranches), ...auditNumbers(localDirs)];
-  const latest = used.length === 0 ? undefined : Math.max(...used);
-  let lastAuditDate;
-  if (latest !== undefined && remoteBranches.includes(`origin/audit/${latest}`)) {
-    lastAuditDate = run('git', ['log', '-1', '--format=%cs', `origin/audit/${latest}`], repoRoot);
-  } else if (latest !== undefined) {
-    lastAuditDate = run('git', ['log', '-1', '--format=%cs'], repoRoot);
-  }
-  return { used, lastAuditDate };
+  return [...auditNumbers(remoteBranches), ...auditNumbers(localDirs)];
 }
 
 /**
@@ -127,7 +119,6 @@ async function main() {
       options: {
         harness: { type: 'string' },
         model: { type: 'string' },
-        'if-due': { type: 'boolean', default: false },
         'dry-run': { type: 'boolean', default: false },
       },
     }).values;
@@ -137,10 +128,7 @@ async function main() {
     });
     return 2;
   }
-  if (
-    options.harness !== undefined &&
-    !HARNESSES.includes(/** @type {never} */ (options.harness))
-  ) {
+  if (!HARNESSES.includes(/** @type {never} */ (options.harness))) {
     log('error', 'invalid arguments', {
       reason: `--harness must be one of ${HARNESSES.join(', ')}`,
     });
@@ -155,10 +143,8 @@ async function main() {
   const hasOrigin = run('git', ['remote'], repoRoot).split('\n').includes('origin');
   if (hasOrigin) run('git', ['fetch', 'origin', '--prune'], repoRoot);
 
-  const { used, lastAuditDate } = readAuditHistory(repoRoot, hasOrigin);
-  const today = new Date().toISOString().slice(0, 10);
-  const audit = nextAuditNumber(used);
-  const harness = /** @type {(typeof HARNESSES)[number]} */ (options.harness ?? harnessFor(audit));
+  const audit = nextAuditNumber(usedAuditNumbers(repoRoot, hasOrigin));
+  const harness = /** @type {(typeof HARNESSES)[number]} */ (options.harness);
   const model = options.model ?? DEFAULT_MODELS[harness];
   const cacheHome = process.env['XDG_CACHE_HOME'] ?? join(homedir(), '.cache');
   const worktree = resolve(cacheHome, 'pirc-audit', `audit-${audit}`);
@@ -169,17 +155,11 @@ async function main() {
     harness,
     model,
     worktree,
-    lastAuditDate,
-    due: isAuditDue(lastAuditDate, today),
     judge,
   };
 
   if (options['dry-run']) {
     process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
-    return 0;
-  }
-  if (options['if-due'] && !plan.due) {
-    log('info', 'audit not due', { lastAuditDate, today });
     return 0;
   }
   if (!hasOrigin) {
@@ -224,7 +204,7 @@ async function main() {
       'create',
       'audit',
       '--description',
-      'Periodic independent audit',
+      'Independent audit',
       '--color',
       '5319e7',
       '--force',

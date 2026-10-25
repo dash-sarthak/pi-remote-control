@@ -1,13 +1,10 @@
 /**
- * Pure decisions behind an audit run: which number comes next, whether an
- * audit is due, and which harness and model run it. No I/O, so the rules are
+ * Pure decisions behind an audit run: which number comes next, which model
+ * runs it, and how the judge session is started. No I/O, so the rules are
  * easy to test and to read.
  */
 
-/** Days between audits. */
-export const AUDIT_INTERVAL_DAYS = 15;
-
-/** Harnesses the judge runs under, alternated by audit number to counter a judge favouring its own model family. */
+/** Harnesses the judge can run under. The caller always names one. */
 export const HARNESSES = /** @type {const} */ (['claude-code', 'pi']);
 
 /** Default model per harness: the strongest model each harness is configured for. */
@@ -37,30 +34,6 @@ export function auditNumbers(names) {
  */
 export function nextAuditNumber(used) {
   return used.length === 0 ? 0 : Math.max(...used) + 1;
-}
-
-/**
- * Whether an audit is due on `today`: always for the first audit, otherwise
- * once at least {@link AUDIT_INTERVAL_DAYS} whole days have passed.
- *
- * @param {string | undefined} lastAuditDate - `YYYY-MM-DD` of the latest audit, or undefined if none.
- * @param {string} today - `YYYY-MM-DD`.
- */
-export function isAuditDue(lastAuditDate, today) {
-  if (lastAuditDate === undefined) return true;
-  const elapsedDays =
-    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${lastAuditDate}T00:00:00Z`)) / 86_400_000;
-  return elapsedDays >= AUDIT_INTERVAL_DAYS;
-}
-
-/**
- * The harness for audit `audit`: even numbers use Claude Code, odd numbers pi.
- *
- * @param {number} audit
- * @returns {(typeof HARNESSES)[number]}
- */
-export function harnessFor(audit) {
-  return audit % 2 === 0 ? 'claude-code' : 'pi';
 }
 
 /**

@@ -4,11 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { renderUnits } from '../../../.agents/skills/judge/scripts/schedule-audits.mjs';
 import {
   auditNumbers,
-  harnessFor,
-  isAuditDue,
   judgeCommand,
   nextAuditNumber,
 } from '../../../.agents/skills/judge/scripts/audit-plan.mjs';
@@ -51,22 +48,12 @@ function validReport(): Record<string, unknown> {
   };
 }
 
-describe('audit numbering, schedule, and harness choice', () => {
+describe('audit numbering and judge isolation', () => {
   it('starts at 0 and continues after the highest number seen on branches or local directories', () => {
     expect(nextAuditNumber(auditNumbers([]))).toBe(0);
     expect(
       nextAuditNumber(auditNumbers(['origin/audit/0', 'origin/audit/2', '1', 'notes', 'audit/x'])),
     ).toBe(3);
-  });
-
-  it('is due for the first audit and again only after 15 days', () => {
-    expect(isAuditDue(undefined, '2026-10-25')).toBe(true);
-    expect(isAuditDue('2026-10-10', '2026-10-24')).toBe(false);
-    expect(isAuditDue('2026-10-10', '2026-10-25')).toBe(true);
-  });
-
-  it('alternates harnesses: even audits on Claude Code, odd audits on pi', () => {
-    expect([0, 1, 2, 3].map(harnessFor)).toEqual(['claude-code', 'pi', 'claude-code', 'pi']);
   });
 
   it('starts Claude Code with CLAUDE.md files, auto-memory, user settings, and session saving disabled', () => {
@@ -200,12 +187,12 @@ describe('start-audit --dry-run', () => {
     return repo;
   }
 
-  it('plans audit 2 on Claude Code without creating branches or worktrees', () => {
+  it('plans audit 2 on the requested harness without creating branches or worktrees', () => {
     const repo = makeRepoWithTwoAudits();
     const cacheHome = join(repo, '..', 'cache');
     const result = spawnSync(
       process.execPath,
-      ['.agents/skills/judge/scripts/start-audit.mjs', '--dry-run'],
+      ['.agents/skills/judge/scripts/start-audit.mjs', '--dry-run', '--harness', 'claude-code'],
       {
         cwd: repo,
         encoding: 'utf8',
@@ -220,8 +207,8 @@ describe('start-audit --dry-run', () => {
       harness: 'claude-code',
       model: 'opus',
       worktree: join(cacheHome, 'pirc-audit', 'audit-2'),
-      due: false,
     });
+    expect(plan).not.toHaveProperty('due');
     expect(
       execFileSync('git', ['branch', '--list', 'audit/*'], { cwd: repo, encoding: 'utf8' }),
     ).toBe('');
@@ -251,32 +238,21 @@ describe('start-audit --dry-run', () => {
     });
   });
 
-  it('rejects an unknown harness with exit code 2', () => {
+  it.each([
+    ['an unknown harness', ['--harness', 'cursor'], '--harness must be one of claude-code, pi'],
+    ['no harness', ['--dry-run'], '--harness must be one of claude-code, pi'],
+    ['the removed --if-due option', ['--harness', 'pi', '--if-due'], "Unknown option '--if-due'"],
+  ])('rejects %s with exit code 2 and changes nothing', (_case, args, reason) => {
     const repo = makeRepoWithTwoAudits();
     const result = spawnSync(
       process.execPath,
-      ['.agents/skills/judge/scripts/start-audit.mjs', '--harness', 'cursor'],
+      ['.agents/skills/judge/scripts/start-audit.mjs', ...args],
       { cwd: repo, encoding: 'utf8' },
     );
     expect(result.status).toBe(2);
-    expect(JSON.parse(result.stderr.trim()) as unknown).toMatchObject({
-      level: 'error',
-      msg: 'invalid arguments',
-    });
-  });
-});
-
-describe('audit schedule', () => {
-  it('fires daily, catches up after downtime, and starts the launcher only-if-due from the checkout', () => {
-    const { service, timer } = renderUnits({
-      repoRoot: '/repo',
-      nodePath: '/usr/bin/node',
-      pathEnv: '/bin',
-    });
-    expect(timer).toContain('OnCalendar=*-*-* 09:00:00\nPersistent=true');
-    expect(service).toContain('WorkingDirectory=/repo');
-    expect(service).toContain(
-      'ExecStart=/usr/bin/node /repo/.agents/skills/judge/scripts/start-audit.mjs --if-due',
-    );
+    expect(result.stdout).toBe('');
+    const line = JSON.parse(result.stderr.trim()) as { level: string; msg: string; reason: string };
+    expect(line).toMatchObject({ level: 'error', msg: 'invalid arguments' });
+    expect(line.reason).toContain(reason);
   });
 });

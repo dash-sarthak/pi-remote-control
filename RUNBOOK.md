@@ -101,41 +101,39 @@ Bridge start/stop, pairing (QR token), project allowlist configuration, and log 
 
 ## Audits
 
-An independent judge audits the repository every 15 days: code, HLD, LLD, comments, documentation, tooling, CI, hygiene, security, and the product's output, the last by running the documented procedures in this file. Each audit runs in a fresh session with no project instructions, memory, or saved sessions. Audits alternate harnesses: even numbers on Claude Code (model `opus`), odd numbers on pi (model `zai-coding-cn/glm-5.3`). Results:
+An independent judge audits the repository whenever you start one: code, HLD, LLD, comments, documentation, tooling, CI, hygiene, security, and the product's output, the last by running the documented procedures in this file. Nothing schedules audits. Each audit runs in a fresh session with no project instructions, memory, or saved sessions, on the judge you choose: Claude (Claude Code, model `opus`) or GLM (pi, model `zai-coding-cn/glm-5.3`). Results:
 
 - branch `audit/N` on GitHub, containing `audit/N/report.md` and `audit/N/findings.json`
 - GitHub issue titled `audit/N` with label `audit`, whose body is the report
 - local copy in `./audit/N/` (git-ignored on `main`), plus `session.log`, the judge's full output
 
-Numbers start at 0 and increase by one per audit.
+Numbers start at 0 and increase by one per audit, whichever judge ran it.
 
-### Run an audit now
+### Run an audit
 
-**Prerequisites:** `gh auth status` shows you logged in; `claude` (for even audits) or `pi` (for odd) on PATH and logged in; push access to `origin`; the code to audit is on `origin/main` (the judge audits `origin/main`, not your working tree).
+**Prerequisites:** `gh auth status` shows you logged in; the judge's harness (`claude` or `pi`) on PATH and logged in; push access to `origin`; the code to audit is on `origin/main` (the judge audits `origin/main`, not your working tree).
 
-1. Preview: `pnpm -s audit:start --dry-run` prints the plan (number, harness, model, worktree path) as JSON and changes nothing.
-2. Run: `pnpm -s audit:start`. Add `--harness pi` or `--harness claude-code`, and `--model ID`, to override the alternation.
+1. In Claude Code or pi, started in this repository, invoke the `audit` skill and name the judge:
+
+   | Judge  | In Claude Code  | In pi                 |
+   | ------ | --------------- | --------------------- |
+   | Claude | `/audit claude` | `/skill:audit claude` |
+   | GLM    | `/audit glm`    | `/skill:audit glm`    |
+
+   With no judge named, the judge runs on the harness you invoked it from. Add a model id to override the default, for example `/audit glm zai-coding-cn/glm-5.3-flash`.
+
+2. The agent shows the planned audit number, harness, model, and worktree, runs the audit (this can take hours), and reports the issue link.
+
+Without an agent, the same launcher runs directly: `pnpm -s audit:start --harness claude-code` or `pnpm -s audit:start --harness pi`, optionally with `--model ID`; add `--dry-run` to print the plan as JSON and change nothing.
 
 **Verify:** the last stderr line is JSON with `"msg":"audit published"` and an `issueUrl`; `./audit/N/report.md` exists; `gh issue list --label audit` lists `audit/N`.
 
 **Failure branches:**
 
+- _`"msg":"invalid arguments"`:_ `--harness` is missing or not `claude-code` or `pi`; the `reason` field says which.
 - _`"msg":"judge session failed; worktree kept for inspection"`:_ the harness exited non-zero. Read `./audit/N/session.log`. Remove the worktree and the unpublished branch before retrying: `git worktree remove --force <worktree>` and `git branch -D audit/N`.
 - _`"msg":"judge output is invalid"`:_ the judge wrote a `findings.json` that breaks the report format; the log lists each problem. Clean up as above and rerun.
 - _`"msg":"audit failed"` mentioning `git push` or `gh`:_ check `gh auth status` and push access, then clean up as above.
-
-### Schedule audits every 15 days
-
-1. `pnpm -s audit:schedule install` writes `~/.config/systemd/user/pirc-audit.{service,timer}` and enables the timer. It checks daily at 09:00, catches up after the machine was off, and starts an audit only when 15 days have passed since the latest one.
-2. For the timer to run while you are logged out: `loginctl enable-linger "$USER"`.
-
-**Verify:** `systemctl --user list-timers pirc-audit.timer` shows the next run. After a run: `journalctl --user -u pirc-audit.service` shows either `"msg":"audit not due"` or the audit's log.
-
-**Inspect or remove:** `pnpm -s audit:schedule print` shows the unit files; `pnpm -s audit:schedule remove` disables and deletes them.
-
-**Failure branches:**
-
-- _Journal shows `claude: command not found` or `gh` auth errors:_ the unit captured the PATH of the shell you installed from; reinstall from a shell where `claude`, `pi`, `gh`, `node`, and `pnpm` all resolve.
 
 ## Harness parity (Claude Code and pi)
 
