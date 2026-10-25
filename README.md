@@ -6,7 +6,7 @@ Control [pi](https://github.com/earendil-works/pi) coding-agent sessions running
 Phone (Expo app) ⇄ WebSocket over Tailscale ⇄ bridge daemon ⇄ pi --mode rpc (per session)
 ```
 
-Status: foundations (toolchain, app scaffold, docs) are in place; the bridge and app features are being built — see [PLAN.md](PLAN.md).
+Status: Phase 1 done — the bridge can drive `pi --mode rpc` from the terminal (`rpc-spike`, see [RUNBOOK.md](RUNBOOK.md)). The phone link and app features come next — see [PLAN.md](PLAN.md).
 
 ## Prerequisites
 
@@ -19,21 +19,23 @@ Status: foundations (toolchain, app scaffold, docs) are in place; the bridge and
 
 ```sh
 pnpm install
-pnpm typecheck && pnpm lint && pnpm test   # verify the workspace
+pnpm verify                                # typecheck, lint, test, format check
 pnpm dev:android                           # start the app (Expo Go)
 ```
 
 ## Layout
 
-| Path                | What                                        |
-| ------------------- | ------------------------------------------- |
-| `apps/mobile`       | Expo app (SDK, expo-router, TypeScript)     |
-| `apps/bridge`       | Bridge daemon (Node) — planned, see PLAN.md |
-| `packages/protocol` | Shared WebSocket protocol types             |
+| Path                | What                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `apps/mobile`       | Expo app (SDK, expo-router, TypeScript)                                                    |
+| `apps/bridge`       | Bridge daemon (Node): pi RPC transport, see [apps/bridge/README.md](apps/bridge/README.md) |
+| `packages/protocol` | Shared WebSocket protocol types                                                            |
+| `packages/tooling`  | Repository checks: custom lint rules, harness-parity test                                  |
+| `.agents/skills`    | Skills shared by Claude Code and pi (judge)                                                |
 
 ## Docs
 
 - [PLAN.md](PLAN.md) — goal, architecture, phases, decisions
 - [RUNBOOK.md](RUNBOOK.md) — operational procedures and troubleshooting
-- [AGENTS.md](AGENTS.md) — conventions for AI coding agents
+- [AGENTS.md](AGENTS.md) — conventions for AI coding agents (also read as `CLAUDE.md`)
 - [CHANGELOG.md](CHANGELOG.md) — notable changes per version
