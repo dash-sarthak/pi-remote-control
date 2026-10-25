@@ -8,6 +8,16 @@
     "build": "tsc",
     "typecheck": "tsc",
     "lint": "eslint .",
-    "dev": "echo 'bridge dev server arrives in the architecture phase' && exit 1"
+    "test": "vitest run",
+    "rpc-spike": "tsx src/cli/rpc-spike.ts"
+  },
+  "dependencies": {
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.4.0",
+    "@types/node": "^22.20.5",
+    "tsx": "4.23.15",
+    "vitest": "^5.0.5"
   }
 }
